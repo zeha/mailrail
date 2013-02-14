@@ -40,7 +40,31 @@ class EmailsController < ApplicationController
   # POST /emails
   # POST /emails.json
   def create
-    @email = Email.new(params[:email])
+    local_part = params[:local_part]
+    mail = Mail.read_from_string(params[:data].read)
+
+    attachments = []
+    mail.attachments.each do |attachment|
+      attachments << attachment.filename
+      if attachment.content_type.include?('pdf')
+        File.open("test.bin", "w+b", 0644) do |f|
+          f.write attachment.body.decoded
+        end
+      end
+    end
+    attachments = attachments.join('')
+
+    bodytext = mail.body.decoded
+    if mail.multipart? and not mail.text_part.nil?
+      bodytext = mail.text_part.decoded
+    end
+
+    email = {
+      :local_part => local_part,
+      :attachments => attachments,
+      :bodytext => bodytext
+    }
+    @email = Email.new(email)
 
     respond_to do |format|
       if @email.save
